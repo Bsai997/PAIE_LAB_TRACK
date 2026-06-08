@@ -29,8 +29,14 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
+        <span className="login-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" />
+            <path d="M20 21C20 17.6863 16.4183 15 12 15C7.58172 15 4 17.6863 4 21" />
+          </svg>
+        </span>
         <div className="login-header">
-          <h1>Welcome back</h1>
+          <h1 className="login-title">PAIE Cell</h1>
           <p>Sign in with your registration ID to continue.</p>
         </div>
         <form onSubmit={handleSubmit} className="login-form">

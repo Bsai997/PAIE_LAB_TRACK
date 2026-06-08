@@ -1,0 +1,355 @@
+import express from 'express';
+import { supabase } from '../config/supabase.js';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { getCurrentWeek } from '../utils/week.js';
+
+const router = express.Router();
+router.use(authenticate, authorize('student'));
+
+router.get('/tasks', async (req, res) => {
+  try {
+    const { weekNumber, year } = getCurrentWeek();
+
+    const { data: allTasks, error } = await supabase
+      .from('tasks')
+      .select(`
+        id, title, type, difficulty, deadline, description, leetcode_link, mcq_data, error_data,
+        created_by_user:users!tasks_created_by_fkey(name)
+      `)
+      .eq('week_number', weekNumber)
+      .eq('year', year);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const { data: subs } = await supabase
+      .from('task_submissions')
+      .select('task_id, status')
+      .eq('student_id', req.user.id);
+
+    const subMap = Object.fromEntries((subs || []).map((s) => [s.task_id, s.status]));
+
+    const result = (allTasks || []).map((t) => ({
+      id: t.id,
+      title: t.title,
+      type: t.type,
+      difficulty: t.difficulty,
+      deadline: t.deadline,
+      description: t.description,
+      leetcode_link: t.leetcode_link,
+      mcq_data: t.mcq_data,
+      error_data: t.error_data,
+      created_by: t.created_by_user?.name || 'Admin',
+      status: subMap[t.id] || 'not_started',
+    }));
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
+router.get('/tasks/:id', async (req, res) => {
+  try {
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !task) return res.status(404).json({ error: 'Task not found' });
+
+    const { data: sub } = await supabase
+      .from('task_submissions')
+      .select('status')
+      .eq('task_id', req.params.id)
+      .eq('student_id', req.user.id)
+      .maybeSingle();
+
+    res.json({ ...task, status: sub?.status || 'not_started' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch task' });
+  }
+});
+
+router.post('/tasks/:id/submit', async (req, res) => {
+  try {
+    const { answer, score } = req.body;
+    const taskId = req.params.id;
+
+    const { data: existing } = await supabase
+      .from('task_submissions')
+      .select('id')
+      .eq('task_id', taskId)
+      .eq('student_id', req.user.id)
+      .maybeSingle();
+
+    const payload = {
+      task_id: taskId,
+      student_id: req.user.id,
+      status: 'completed',
+      answer: answer || null,
+      score: score ?? null,
+      submitted_at: new Date().toISOString(),
+    };
+
+    if (existing) {
+      await supabase.from('task_submissions').update(payload).eq('id', existing.id);
+    } else {
+      await supabase.from('task_submissions').insert(payload);
+    }
+
+    res.json({ message: 'Task submitted successfully', status: 'completed' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit task' });
+  }
+});
+
+router.post('/tasks/:id/start', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { data: existing } = await supabase
+      .from('task_submissions')
+      .select('id, status')
+      .eq('task_id', taskId)
+      .eq('student_id', req.user.id)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabase.from('task_submissions').insert({
+        task_id: taskId,
+        student_id: req.user.id,
+        status: 'pending',
+      });
+    } else if (existing.status === 'not_started') {
+      await supabase.from('task_submissions').update({ status: 'pending' }).eq('id', existing.id);
+    }
+
+    res.json({ message: 'Task started' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to start task' });
+  }
+});
+
+router.get('/performance', async (req, res) => {
+  try {
+    const { data: submissions, error } = await supabase
+      .from('task_submissions')
+      .select(`
+        status, task_id,
+        task:tasks(difficulty, week_number, year)
+      `)
+      .eq('student_id', req.user.id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const weekMap = {};
+
+    (submissions || []).forEach((s) => {
+      if (!s.task) return;
+      const key = `Week ${s.task.week_number} (${s.task.year})`;
+      if (!weekMap[key]) weekMap[key] = { week: key, easy: 0, medium: 0, hard: 0, missed: 0 };
+
+      if (s.status === 'completed') {
+        weekMap[key][s.task.difficulty]++;
+      } else {
+        weekMap[key].missed++;
+      }
+    });
+
+    const { weekNumber, year } = getCurrentWeek();
+    const result = Object.values(weekMap);
+    if (result.length === 0) {
+      result.push({ week: `Week ${weekNumber} (${year})`, easy: 0, medium: 0, hard: 0, missed: 0 });
+    }
+
+    res.json(result.sort((a, b) => a.week.localeCompare(b.week)));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch performance' });
+  }
+});
+
+router.get('/tests', async (req, res) => {
+  try {
+    const { data: tests, error } = await supabase
+      .from('tests')
+      .select('id, name, duration, test_date, is_active')
+      .eq('is_active', true)
+      .order('test_date', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const { data: attempts } = await supabase
+      .from('test_attempts')
+      .select('test_id, status')
+      .eq('student_id', req.user.id);
+
+    const attemptMap = Object.fromEntries((attempts || []).map((a) => [a.test_id, a.status]));
+
+    res.json(
+      (tests || []).map((t) => ({
+        ...t,
+        attempted: attemptMap[t.id] === 'submitted',
+      }))
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch tests' });
+  }
+});
+
+router.post('/tests/:id/start', async (req, res) => {
+  try {
+    const testId = req.params.id;
+
+    const { data: test, error } = await supabase
+      .from('tests')
+      .select('*')
+      .eq('id', testId)
+      .single();
+
+    if (error || !test) return res.status(404).json({ error: 'Test not found' });
+
+    const { data: questions } = await supabase
+      .from('test_questions')
+      .select('id, question, options, question_order')
+      .eq('test_id', testId)
+      .order('question_order');
+
+    const { data: existing } = await supabase
+      .from('test_attempts')
+      .select('*')
+      .eq('test_id', testId)
+      .eq('student_id', req.user.id)
+      .maybeSingle();
+
+    if (existing?.status === 'submitted') {
+      return res.status(400).json({ error: 'Test already submitted' });
+    }
+
+    let attempt = existing;
+    if (!attempt) {
+      const { data: newAttempt } = await supabase
+        .from('test_attempts')
+        .insert({
+          test_id: testId,
+          student_id: req.user.id,
+          started_at: new Date().toISOString(),
+          status: 'in_progress',
+          answers: {},
+        })
+        .select()
+        .single();
+      attempt = newAttempt;
+    }
+
+    res.json({
+      test: { id: test.id, name: test.name, duration: test.duration },
+      questions: (questions || []).map((q) => ({
+        id: q.id,
+        question: q.question,
+        options: q.options,
+      })),
+      attempt,
+      endTime: new Date(new Date(attempt.started_at).getTime() + test.duration * 60000).toISOString(),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to start test' });
+  }
+});
+
+router.post('/tests/:id/submit', async (req, res) => {
+  try {
+    const { answers } = req.body;
+    const testId = req.params.id;
+
+    const { data: questions } = await supabase
+      .from('test_questions')
+      .select('id, correct_answer')
+      .eq('test_id', testId);
+
+    let score = 0;
+    (questions || []).forEach((q) => {
+      if (answers?.[q.id] === q.correct_answer) score++;
+    });
+
+    await supabase
+      .from('test_attempts')
+      .update({
+        answers: answers || {},
+        score,
+        status: 'submitted',
+        submitted_at: new Date().toISOString(),
+      })
+      .eq('test_id', testId)
+      .eq('student_id', req.user.id);
+
+    res.json({ message: 'Test submitted', score, total: questions?.length || 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit test' });
+  }
+});
+
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const { search, department, sort } = req.query;
+
+    let query = supabase
+      .from('users')
+      .select('id, name, department, branch, profile_photo')
+      .eq('role', 'student');
+
+    if (department && department !== 'all') {
+      query = query.eq('department', department);
+    }
+    if (search) {
+      query = query.ilike('name', `%${search}%`);
+    }
+
+    const { data: students, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    const { data: submissions } = await supabase
+      .from('task_submissions')
+      .select('student_id, status, task:tasks(difficulty)')
+      .eq('status', 'completed');
+
+    const scoreMap = {};
+    (submissions || []).forEach((s) => {
+      if (!scoreMap[s.student_id]) scoreMap[s.student_id] = { easy: 0, medium: 0, hard: 0, total: 0 };
+      if (s.task?.difficulty) {
+        scoreMap[s.student_id][s.task.difficulty]++;
+        scoreMap[s.student_id].total++;
+      }
+    });
+
+    let result = (students || []).map((s, i) => ({
+      rank: i + 1,
+      ...s,
+      easy: scoreMap[s.id]?.easy || 0,
+      medium: scoreMap[s.id]?.medium || 0,
+      hard: scoreMap[s.id]?.hard || 0,
+      total: scoreMap[s.id]?.total || 0,
+    }));
+
+    if (sort === 'easy') result.sort((a, b) => b.easy - a.easy);
+    else if (sort === 'medium') result.sort((a, b) => b.medium - a.medium);
+    else if (sort === 'hard') result.sort((a, b) => b.hard - a.hard);
+    else result.sort((a, b) => b.total - a.total);
+
+    result = result.map((s, i) => ({ ...s, rank: i + 1 }));
+
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+export default router;

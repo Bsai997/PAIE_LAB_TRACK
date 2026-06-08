@@ -59,33 +59,58 @@ export default function AdminTasks() {
 
   return (
     <Layout>
+      <div className="tasks-page-hero admin-tasks-header-hero">
+        <div>
+          <button className="back-nav-btn" onClick={() => navigate(-1)} aria-label="Go back">
+            <span aria-hidden="true">←</span>
+            Back
+          </button>
+          <h1>Weekly Tasks</h1>
+          <p>Manage assignments, monitor submissions, and review student progress.</p>
+        </div>
+        <div className="tasks-hero-metrics">
+          <div className="metric-chip">
+            <span>Total Tasks</span>
+            <strong>{tasks.length}</strong>
+          </div>
+          <div className="metric-chip metric-chip-completed">
+            <span>Students Completed</span>
+            <strong>{stats.completed_count}</strong>
+          </div>
+        </div>
+      </div>
+
       <div className="admin-tasks-header">
         <div>
-          <h1>Weekly Tasks</h1>
-          <p>Manage tasks for the current week</p>
+          <h2>Task List</h2>
+          <p>Weekly operational view</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>Create Weekly Task</button>
       </div>
 
       <div className="admin-tasks-layout">
         <div className="tasks-list">
-          {tasks.map((task) => (
-            <div key={task.id} className="admin-task-card">
-              <div className="admin-task-main">
-                <h3>{task.title}</h3>
-                <p>{task.description}</p>
-                <div className="task-meta-row">
-                  <span className={`badge badge-${task.difficulty}`}>{task.difficulty}</span>
-                  <span>Deadline: {new Date(task.deadline).toLocaleDateString()}</span>
-                  <span>Submissions: {task.total_submissions}</span>
-                  <span>By: {task.created_by}</span>
+          {tasks.length === 0 ? (
+            <div className="tasks-feedback-card">No tasks found for this week.</div>
+          ) : (
+            tasks.map((task) => (
+              <div key={task.id} className="admin-task-card task-card-professional">
+                <div className="admin-task-main">
+                  <h3>{task.title}</h3>
+                  <p>{task.description}</p>
+                  <div className="task-meta-row">
+                    <span className={`badge badge-${task.difficulty}`}>{task.difficulty}</span>
+                    <span>Deadline: {new Date(task.deadline).toLocaleDateString()}</span>
+                    <span>Submissions: {task.total_submissions}</span>
+                    <span>By: {task.created_by}</span>
+                  </div>
                 </div>
+                <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students`)}>
+                  View Students
+                </button>
               </div>
-              <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students`)}>
-                View Students
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div className="stat-sidebar">
           <div className="stat-card">

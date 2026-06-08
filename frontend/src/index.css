@@ -128,7 +128,7 @@ a { color: var(--primary); text-decoration: none; }
   padding: 2rem;
   background:
     radial-gradient(circle at top, rgb(255 255 255 / 0.45), transparent 35%),
-    linear-gradient(180deg, #f8f2e5 0%, #f5eedf 100%);
+    linear-gradient(180deg, #f7f4ee 0%, #f5eedf 100%);
 }
 
 .login-card {

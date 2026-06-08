@@ -11,10 +11,6 @@ const cards = [
 export default function SuperAdminDashboard() {
   return (
     <Layout>
-      <div className="page-header">
-        <h1>Welcome, admin.</h1>
-        <p>System-level controls for the entire program.</p>
-      </div>
       <div className="dashboard-grid">
         {cards.map((c) => (
           <DashboardCard key={c.title} {...c} />

@@ -11,10 +11,6 @@ const cards = [
 export default function StudentDashboard() {
   return (
     <Layout>
-      <div className="page-header">
-        <h1>Welcome, Student.</h1>
-        <p>Track your progress, complete tasks, and ace your tests.</p>
-      </div>
       <div className="dashboard-grid">
         {cards.map((c) => (
           <DashboardCard key={c.title} {...c} />

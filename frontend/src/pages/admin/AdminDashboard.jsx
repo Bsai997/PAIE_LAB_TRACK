@@ -11,10 +11,6 @@ const cards = [
 export default function AdminDashboard() {
   return (
     <Layout>
-      <div className="page-header">
-        <h1>Welcome, Admin.</h1>
-        <p>Manage tasks, tests, and monitor student progress.</p>
-      </div>
       <div className="dashboard-grid">
         {cards.map((c) => (
           <DashboardCard key={c.title} {...c} />

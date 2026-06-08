@@ -2,18 +2,18 @@ import Layout from '../../components/Layout';
 import DashboardCard from '../../components/DashboardCard';
 
 const cards = [
-  { title: 'Tasks', image: '/task.jpg', path: '/student/tasks' },
-  { title: 'Performance', image: '/performance.jpg', path: '/student/performance' },
-  { title: 'Tests', image: '/test.jpg', path: '/student/tests' },
-  { title: 'Leaderboard', image: '/leaderboard.jpg', path: '/student/leaderboard' },
+  { title: 'Tasks', image: '/task.jpg', path: '/student/tasks', description: 'Complete MCQ, coding, and error-finding tasks' },
+  { title: 'Performance', image: '/performance.jpg', path: '/student/performance', description: 'Track your progress and improvements' },
+  { title: 'Tests', image: '/test.jpg', path: '/student/tests', description: 'Take timed assessments and quizzes' },
+  { title: 'Leaderboard', image: '/leaderboard.jpg', path: '/student/leaderboard', description: 'Compete and see your ranking' },
 ];
 
 export default function StudentDashboard() {
   return (
     <Layout>
       <div className="page-header">
-        <h1>Student Dashboard</h1>
-        <p>Welcome! Choose a section below.</p>
+        <h1>Welcome, Student.</h1>
+        <p>Track your progress, complete tasks, and ace your tests.</p>
       </div>
       <div className="dashboard-grid">
         {cards.map((c) => (

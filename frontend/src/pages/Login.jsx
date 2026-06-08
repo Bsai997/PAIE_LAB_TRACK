@@ -30,11 +30,10 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <img src="https://ui-avatars.com/api/?name=PAIE&background=6366f1&color=fff&size=64" alt="Logo" />
-          <h1>PAIE Cell</h1>
-          <p>Student Engagement Platform</p>
+          <h1>Welcome back</h1>
+          <p>Sign in with your registration ID to continue.</p>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="alert alert-error">{error}</div>}
           <div className="form-group">
             <label htmlFor="regdid">Registration ID</label>
@@ -43,7 +42,7 @@ export default function Login() {
               type="text"
               value={regdid}
               onChange={(e) => setRegdid(e.target.value)}
-              placeholder="Enter your registration ID"
+              placeholder="e.g. 22BCE7421"
               required
             />
           </div>
@@ -58,10 +57,11 @@ export default function Login() {
               required
             />
           </div>
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Signing in...' : 'Login'}
+          <button type="submit" className="btn login-submit btn-block" disabled={loading}>
+            {loading ? 'Signing in' : 'Sign in'}
           </button>
         </form>
+        <p className="login-footer">Don't have credentials? Contact your program admin.</p>
       </div>
     </div>
   );

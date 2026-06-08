@@ -2,8 +2,8 @@ import Layout from '../../components/Layout';
 import DashboardCard from '../../components/DashboardCard';
 
 const cards = [
-  { title: 'Tasks', image: '/task.jpg', path: '/admin/tasks' },
-  { title: 'Performance', image: '/performance.jpg', path: '/admin/performance' },
+  { title: 'Tasks', image: '/task.jpg', path: '/public' },
+  { title: 'Performance', image: '/performance.jpg', path: '/public' },
   { title: 'Tests', image: '/test.jpg', path: '/admin/tests' },
   { title: 'Leaderboard', image: '/leaderboard.jpg', path: '/admin/leaderboard' },
 ];

@@ -83,7 +83,7 @@ router.get('/students/:id/performance', async (req, res) => {
   try {
     const { data: student, error } = await supabase
       .from('users')
-      .select('id, name, branch, profile_photo')
+      .select('id, name, branch, regdid, clubmail, originalmail, skills, profile_photo')
       .eq('id', req.params.id)
       .single();
 
@@ -125,6 +125,8 @@ router.get('/students/:id/performance', async (req, res) => {
     res.json({
       student,
       progress,
+      totalSolved,
+      totalAssigned,
       weekly: Object.values(weekMap),
     });
   } catch (err) {

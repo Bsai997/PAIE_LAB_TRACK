@@ -51,23 +51,56 @@ router.post('/tasks', async (req, res) => {
       return res.status(400).json({ error: 'Title, type, difficulty, and deadline are required' });
     }
 
+    const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+    const toIsoDeadline = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const normalized = raw.includes('T') ? raw : `${raw}T23:59:59.000Z`;
+      const parsed = new Date(normalized);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toISOString();
+    };
+
+    const normalizedDeadline = toIsoDeadline(deadline);
+    if (!normalizedDeadline) {
+      return res.status(400).json({ error: 'Invalid deadline format' });
+    }
+
     const { weekNumber, year } = getCurrentWeek();
+
+    const payload = {
+      title,
+      type,
+      difficulty,
+      deadline: normalizedDeadline,
+      description: description || concept || '',
+      created_by: isUuid(req.user.id) ? req.user.id : null,
+      week_number: weekNumber,
+      year,
+    };
+
+    if (type === 'coding') {
+      payload.leetcode_link = leetcode_link || null;
+    }
+
+    if (type === 'mcq') {
+      const questions = Array.isArray(mcq_data?.questions) ? mcq_data.questions : [];
+      const firstQuestion = questions[0] || mcq_data || {};
+      payload.mcq_data = {
+        question: firstQuestion.question || '',
+        options: Array.isArray(firstQuestion.options) ? firstQuestion.options : [],
+        correct_answer: Number.isInteger(firstQuestion.correct_answer) ? firstQuestion.correct_answer : 0,
+        questions,
+      };
+    }
+
+    if (type === 'error') {
+      payload.error_data = error_data || null;
+    }
 
     const { data: task, error } = await supabase
       .from('tasks')
-      .insert({
-        title,
-        type,
-        difficulty,
-        deadline,
-        description: description || concept || '',
-        leetcode_link: leetcode_link || null,
-        mcq_data: mcq_data || null,
-        error_data: error_data || null,
-        created_by: req.user.id,
-        week_number: weekNumber,
-        year,
-      })
+      .insert(payload)
       .select()
       .single();
 
@@ -87,7 +120,7 @@ router.post('/tasks', async (req, res) => {
     res.status(201).json(task);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create task' });
+    res.status(500).json({ error: err.message || 'Failed to create task' });
   }
 });
 

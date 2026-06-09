@@ -33,7 +33,7 @@ export default function AdminTasks() {
       title: form.title,
       type: form.type,
       difficulty: form.difficulty,
-      deadline: form.deadline,
+      deadline: (form.deadline || '').slice(0, 10),
       description: form.description,
     };
 
@@ -227,7 +227,7 @@ export default function AdminTasks() {
             </div>
             <div className="form-group">
               <label>Deadline</label>
-              <input type="datetime-local" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} required />
+              <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} required />
             </div>
           </div>
 

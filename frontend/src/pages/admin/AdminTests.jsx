@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import api from '../../api/axios';
+import { useToast } from '../../context/ToastContext';
 
 export default function AdminTests() {
+  const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -11,7 +15,6 @@ export default function AdminTests() {
   const [testForm, setTestForm] = useState({ name: '', duration: 30, test_date: '' });
   const [questionForm, setQuestionForm] = useState({ question: '', options: ['', '', '', ''], correct_answer: 0 });
   const [questions, setQuestions] = useState([]);
-  const [message, setMessage] = useState('');
 
   const loadTests = () => api.get('/admin/tests').then((res) => setTests(res.data));
 
@@ -19,32 +22,44 @@ export default function AdminTests() {
 
   const handleCreateTest = async (e) => {
     e.preventDefault();
-    const res = await api.post('/admin/tests', testForm);
-    setSelectedTest(res.data);
-    setShowCreate(false);
-    setShowQuestion(true);
-    loadTests();
+    try {
+      const res = await api.post('/admin/tests', testForm);
+      setSelectedTest(res.data);
+      setShowCreate(false);
+      setShowQuestion(true);
+      showSuccess('Test created successfully.');
+      loadTests();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to create test.');
+    }
   };
 
   const handleAddQuestion = async (e) => {
     e.preventDefault();
-    await api.post(`/admin/tests/${selectedTest.id}/questions`, {
-      question: questionForm.question,
-      options: questionForm.options.filter(Boolean),
-      correct_answer: questionForm.correct_answer,
-    });
-    setMessage('Question added! Add another or close.');
-    setQuestionForm({ question: '', options: ['', '', '', ''], correct_answer: 0 });
-    const res = await api.get(`/admin/tests/${selectedTest.id}/questions`);
-    setQuestions(res.data);
+    try {
+      await api.post(`/admin/tests/${selectedTest.id}/questions`, {
+        question: questionForm.question,
+        options: questionForm.options.filter(Boolean),
+        correct_answer: questionForm.correct_answer,
+      });
+      showSuccess('Question added successfully.');
+      setQuestionForm({ question: '', options: ['', '', '', ''], correct_answer: 0 });
+      const res = await api.get(`/admin/tests/${selectedTest.id}/questions`);
+      setQuestions(res.data);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to add question.');
+    }
   };
 
   const openQuestions = async (test) => {
-    setSelectedTest(test);
-    const res = await api.get(`/admin/tests/${test.id}/questions`);
-    setQuestions(res.data);
-    setShowQuestion(true);
-    setMessage('');
+    try {
+      setSelectedTest(test);
+      const res = await api.get(`/admin/tests/${test.id}/questions`);
+      setQuestions(res.data);
+      setShowQuestion(true);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to load questions.');
+    }
   };
 
   const updateOption = (i, val) => {
@@ -57,6 +72,7 @@ export default function AdminTests() {
     <Layout>
       <div className="admin-tasks-header">
         <div>
+          <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
           <h1>Tests</h1>
           <p>Create and manage test questions</p>
         </div>
@@ -93,7 +109,6 @@ export default function AdminTests() {
       </Modal>
 
       <Modal open={showQuestion} onClose={() => setShowQuestion(false)} title={`Questions — ${selectedTest?.name || ''}`} wide>
-        {message && <div className="alert alert-success">{message}</div>}
         {questions.length > 0 && (
           <div className="questions-list">
             <h4>Added Questions ({questions.length})</h4>

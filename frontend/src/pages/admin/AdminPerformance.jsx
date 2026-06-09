@@ -1,36 +1,22 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
 
 export default function AdminPerformance() {
   const [data, setData] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/admin/performance').then((res) => setData(res.data));
   }, []);
 
-  const maxCompleted = Math.max(...data.map((d) => d.completed), 1);
-
   return (
     <Layout>
       <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
         <h1>Performance Overview</h1>
         <p>Student task completion this week</p>
-      </div>
-
-      <div className="chart-container">
-        <h3>Completion Chart</h3>
-        <div className="bar-chart">
-          {data.slice(0, 10).map((s) => (
-            <div key={s.id} className="bar-item">
-              <span className="bar-label">{s.name.split(' ')[0]}</span>
-              <div className="bar-track">
-                <div className="bar-fill" style={{ width: `${(s.completed / maxCompleted) * 100}%` }} />
-              </div>
-              <span className="bar-value">{s.completed}/{s.total_assigned}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="table-container">

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
 
 export default function Leaderboard({ apiPath = '/student/leaderboard' }) {
   const [data, setData] = useState([]);
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('all');
   const [sort, setSort] = useState('total');
@@ -19,6 +21,7 @@ export default function Leaderboard({ apiPath = '/student/leaderboard' }) {
   return (
     <Layout>
       <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
         <h1>Leaderboard</h1>
         <p>Student rankings based on task completion</p>
       </div>

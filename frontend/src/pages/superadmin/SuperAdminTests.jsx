@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import api from '../../api/axios';
+import { useToast } from '../../context/ToastContext';
 
 export default function SuperAdminTests() {
+  const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [tests, setTests] = useState([]);
   const [selectedTest, setSelectedTest] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -17,30 +21,44 @@ export default function SuperAdminTests() {
 
   const handleCreateTest = async (e) => {
     e.preventDefault();
-    const res = await api.post('/superadmin/tests', testForm);
-    setSelectedTest(res.data);
-    setShowCreate(false);
-    setShowQuestion(true);
-    loadTests();
+    try {
+      const res = await api.post('/superadmin/tests', testForm);
+      setSelectedTest(res.data);
+      setShowCreate(false);
+      setShowQuestion(true);
+      showSuccess('Test created successfully.');
+      loadTests();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to create test.');
+    }
   };
 
   const handleAddQuestion = async (e) => {
     e.preventDefault();
-    await api.post(`/superadmin/tests/${selectedTest.id}/questions`, {
-      question: questionForm.question,
-      options: questionForm.options.filter(Boolean),
-      correct_answer: questionForm.correct_answer,
-    });
-    setQuestionForm({ question: '', options: ['', '', '', ''], correct_answer: 0 });
-    const res = await api.get(`/superadmin/tests/${selectedTest.id}/questions`);
-    setQuestions(res.data);
+    try {
+      await api.post(`/superadmin/tests/${selectedTest.id}/questions`, {
+        question: questionForm.question,
+        options: questionForm.options.filter(Boolean),
+        correct_answer: questionForm.correct_answer,
+      });
+      showSuccess('Question added successfully.');
+      setQuestionForm({ question: '', options: ['', '', '', ''], correct_answer: 0 });
+      const res = await api.get(`/superadmin/tests/${selectedTest.id}/questions`);
+      setQuestions(res.data);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to add question.');
+    }
   };
 
   const openQuestions = async (test) => {
-    setSelectedTest(test);
-    const res = await api.get(`/superadmin/tests/${test.id}/questions`);
-    setQuestions(res.data);
-    setShowQuestion(true);
+    try {
+      setSelectedTest(test);
+      const res = await api.get(`/superadmin/tests/${test.id}/questions`);
+      setQuestions(res.data);
+      setShowQuestion(true);
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to load questions.');
+    }
   };
 
   const updateOption = (i, val) => {
@@ -53,6 +71,7 @@ export default function SuperAdminTests() {
     <Layout>
       <div className="admin-tasks-header">
         <div>
+          <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
           <h1>Test Control</h1>
           <p>Add and manage test questions</p>
         </div>

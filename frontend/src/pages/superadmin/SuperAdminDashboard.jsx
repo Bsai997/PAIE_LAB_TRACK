@@ -1,5 +1,6 @@
 import Layout from '../../components/Layout';
 import DashboardCard from '../../components/DashboardCard';
+import { useNavigate } from 'react-router-dom';
 
 const cards = [
   { title: 'Admins', image: '/admin.jpg', path: '/superadmin/admins', description: 'Manage admin members and their contributions' },
@@ -9,8 +10,13 @@ const cards = [
 ];
 
 export default function SuperAdminDashboard() {
+  const navigate = useNavigate();
+
   return (
     <Layout>
+      <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
+      </div>
       <div className="dashboard-grid">
         {cards.map((c) => (
           <DashboardCard key={c.title} {...c} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import api from '../../api/axios';
+import { useToast } from '../../context/ToastContext';
 
 const createEmptyMcq = () => ({ question: '', options: ['', ''], correct_answer: 0 });
 
@@ -17,6 +18,7 @@ export default function AdminTasks() {
     error_code: '', error_line: 1,
   });
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
 
   const load = () => {
     api.get('/admin/tasks').then((res) => setTasks(res.data));
@@ -52,7 +54,7 @@ export default function AdminTasks() {
         .filter((q) => q.question && q.options.length >= 2);
 
       if (!questions.length) {
-        window.alert('Please add at least one MCQ with a question and two options.');
+        showError('Please add at least one MCQ with a question and two options.');
         return;
       }
 
@@ -66,9 +68,14 @@ export default function AdminTasks() {
       payload.error_data = { code: form.error_code, correct_line: parseInt(form.error_line, 10) };
     }
 
-    await api.post('/admin/tasks', payload);
-    setShowForm(false);
-    load();
+    try {
+      await api.post('/admin/tasks', payload);
+      setShowForm(false);
+      showSuccess('Task created successfully.');
+      load();
+    } catch (error) {
+      showError(error.response?.data?.error || 'Failed to create task. Please try again.');
+    }
   };
 
   const updateMcqQuestion = (questionIndex, value) => {
@@ -154,16 +161,6 @@ export default function AdminTasks() {
           </button>
           <h1>Weekly Tasks</h1>
           <p>Manage assignments, monitor submissions, and review student progress.</p>
-        </div>
-        <div className="tasks-hero-metrics">
-          <div className="metric-chip">
-            <span>Total Tasks</span>
-            <strong>{tasks.length}</strong>
-          </div>
-          <div className="metric-chip metric-chip-completed">
-            <span>Students Completed</span>
-            <strong>{stats.completed_count}</strong>
-          </div>
         </div>
       </div>
 
@@ -271,6 +268,7 @@ export default function AdminTasks() {
                       placeholder="Untitled Question"
                     />
                   </div>
+                  <p className="mcq-answer-hint">Select the correct answer using the radio button. Students can view correct answers only after completing the task.</p>
                   {mcq.options.map((opt, i) => (
                     <div key={i} className="mcq-option-row">
                       <input
@@ -281,6 +279,7 @@ export default function AdminTasks() {
                         aria-label={`Mark option ${i + 1} as correct for question ${qIndex + 1}`}
                       />
                       <input
+                        className="mcq-option-input"
                         value={opt}
                         onChange={(e) => updateMcqOption(qIndex, i, e.target.value)}
                         placeholder={`Option ${i + 1}`}

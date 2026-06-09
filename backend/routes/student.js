@@ -61,12 +61,18 @@ router.get('/tasks/:id', async (req, res) => {
 
     const { data: sub } = await supabase
       .from('task_submissions')
-      .select('status')
+      .select('status, score, answer, submitted_at')
       .eq('task_id', req.params.id)
       .eq('student_id', req.user.id)
       .maybeSingle();
 
-    res.json({ ...task, status: sub?.status || 'not_started' });
+    res.json({
+      ...task,
+      status: sub?.status || 'not_started',
+      submission_score: sub?.score ?? null,
+      submission_answer: sub?.answer ?? null,
+      submitted_at: sub?.submitted_at ?? null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch task' });

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
 
 export default function SuperAdminStudentPerformance() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -17,6 +18,9 @@ export default function SuperAdminStudentPerformance() {
 
   return (
     <Layout>
+      <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
+      </div>
       <div className="performance-detail">
         <div className="performance-left">
           <img src={student.profile_photo} alt={student.name} className="avatar-xl" />

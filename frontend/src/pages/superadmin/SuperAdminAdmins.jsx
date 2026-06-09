@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import api from '../../api/axios';
+import { useToast } from '../../context/ToastContext';
 
 export default function SuperAdminAdmins() {
+  const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [admins, setAdmins] = useState([]);
   const [search, setSearch] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -12,7 +16,6 @@ export default function SuperAdminAdmins() {
   const [form, setForm] = useState({
     name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '',
   });
-  const [message, setMessage] = useState('');
 
   const load = () => {
     api.get('/superadmin/admins', { params: { search } }).then((res) => {
@@ -43,14 +46,12 @@ export default function SuperAdminAdmins() {
     e.preventDefault();
     try {
       const res = await api.post('/superadmin/members', form);
-      setMessage(res.data.message);
-      setTimeout(() => setMessage(''), 5000);
+      showSuccess(res.data.message || 'Member created successfully.');
       setShowForm(false);
       setForm({ name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '' });
       load();
     } catch (error) {
-      setMessage(`Error: ${error.response?.data?.error || error.message}`);
-      setTimeout(() => setMessage(''), 5000);
+      showError(error.response?.data?.error || error.message);
     }
   };
 
@@ -58,13 +59,12 @@ export default function SuperAdminAdmins() {
     <Layout>
       <div className="admin-tasks-header">
         <div>
+          <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
           <h1>Admin Control</h1>
           <p>Manage admin members and contributions</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>Add a Member</button>
       </div>
-
-      {message && <div className="alert alert-success">{message}</div>}
 
       <div className="filters" style={{ position: 'relative' }}>
         <input 
@@ -115,7 +115,8 @@ export default function SuperAdminAdmins() {
                 <img src={admin.profile_photo} alt={admin.name} className="avatar-lg" />
                 <div className="admin-info">
                   <h3>{admin.name}</h3>
-                  <p>{admin.skills || 'No skills listed'}</p>
+                  <p><strong>Department:</strong> {admin.department || admin.branch || 'N/A'}</p>
+                  <p><strong>Skills:</strong> {admin.skills || 'No skills listed'}</p>
                 </div>
                 <div className="contribution-circles">
                   <div className="circle easy"><span>{admin.contribution?.easy || 0}</span><small>Easy</small></div>

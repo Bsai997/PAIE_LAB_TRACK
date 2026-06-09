@@ -16,6 +16,7 @@ export default function SuperAdminStudents() {
   return (
     <Layout>
       <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
         <h1>Student Management</h1>
         <p>View and monitor all students</p>
       </div>

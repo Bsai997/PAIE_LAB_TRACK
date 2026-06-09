@@ -234,12 +234,12 @@ router.post('/members', async (req, res) => {
       user,
       email: emailResult,
       message: emailResult.sent
-        ? 'Member created and welcome email sent'
-        : 'Member created (email preview logged on server)',
+        ? 'Member created and welcome email sent successfully'
+        : `Member created (Email: ${emailResult.error || 'Preview mode - SMTP not configured'})`,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to create member' });
+    console.error('[Create Member Error]', err);
+    res.status(500).json({ error: err.message || 'Failed to create member' });
   }
 });
 

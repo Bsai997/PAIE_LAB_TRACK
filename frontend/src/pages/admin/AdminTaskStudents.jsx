@@ -24,8 +24,8 @@ export default function AdminTaskStudents() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Department</th>
-              <th>Questions Solved (Week)</th>
+              <th>Branch</th>
+              <th>Total Questions Solved </th>
               <th>Status</th>
             </tr>
           </thead>
@@ -33,7 +33,7 @@ export default function AdminTaskStudents() {
             {students.map((s) => (
               <tr key={s.id}>
                 <td>{s.name}</td>
-                <td>{s.department}</td>
+                <td>{s.branch}</td>
                 <td>{s.questions_solved}</td>
                 <td><span className={`status status-${s.status}`}>{s.status.replace('_', ' ')}</span></td>
               </tr>

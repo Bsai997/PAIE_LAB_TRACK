@@ -10,27 +10,41 @@ router.get('/tasks', async (req, res) => {
   try {
     const { weekNumber, year } = getCurrentWeek();
 
-    // OPTIMIZED: Single query with proper joins instead of 6 separate queries
     const { data: allTasks, error } = await supabase
       .from('tasks')
       .select(`
-        id, title, type, difficulty, deadline, description, week_number,
-        created_by_user:users!tasks_created_by_fkey(name),
-        submission:task_submissions!task_submissions_task_id_student_id_fkey(
-          status, submitted_at
-        ),
-        coding:coding_tasks(task_id, practice_link),
-        mcq:mcq_tasks(task_id, question, options, correct_answer),
-        error:error_tasks(task_id, code, correct_line),
-        algorithm:algorithm_tasks(task_id, problem_statement, input_description, output_description)
+        id, title, type, difficulty, deadline, description,
+        created_by_user:users!tasks_created_by_fkey(name)
       `)
       .eq('week_number', weekNumber)
-      .eq('year', year)
-      .eq('submission.student_id', req.user.id);
+      .eq('year', year);
 
     if (error) return res.status(500).json({ error: error.message });
 
+    const taskIds = (allTasks || []).map((t) => t.id);
+
+    const { data: submissions, error: submissionsError } = await supabase
+      .from('task_submissions')
+      .select('task_id, status, submitted_at')
+      .eq('student_id', req.user.id)
+      .in('task_id', taskIds.length ? taskIds : ['00000000-0000-0000-0000-000000000000']);
+
+    if (submissionsError) return res.status(500).json({ error: submissionsError.message });
+
+    const submissionMap = new Map((submissions || []).map((s) => [s.task_id, s]));
+
+    // Coding link is needed on StudentTasks page when opening the external problem.
+    const { data: codingRows, error: codingError } = await supabase
+      .from('coding_tasks')
+      .select('task_id, practice_link')
+      .in('task_id', taskIds.length ? taskIds : ['00000000-0000-0000-0000-000000000000']);
+
+    if (codingError) return res.status(500).json({ error: codingError.message });
+
+    const codingMap = new Map((codingRows || []).map((row) => [row.task_id, row]));
+
     const result = (allTasks || []).map((t) => {
+      const submission = submissionMap.get(t.id);
       const taskData = {
         id: t.id,
         title: t.title,
@@ -39,17 +53,11 @@ router.get('/tasks', async (req, res) => {
         deadline: t.deadline,
         description: t.description,
         created_by: t.created_by_user?.name || 'Admin',
-        status: t.submission && t.submission.length > 0 ? t.submission[0].status : 'not_started',
+        status: submission?.status || 'not_started',
       };
 
-      if (t.type === 'coding' && t.coding?.length) {
-        taskData.coding = t.coding[0];
-      } else if (t.type === 'mcq' && t.mcq?.length) {
-        taskData.mcq = t.mcq[0];
-      } else if (t.type === 'error' && t.error?.length) {
-        taskData.error = t.error[0];
-      } else if (t.type === 'algorithm' && t.algorithm?.length) {
-        taskData.algorithm = t.algorithm[0];
+      if (t.type === 'coding') {
+        taskData.coding = codingMap.get(t.id) || null;
       }
 
       return taskData;
@@ -146,8 +154,8 @@ router.post('/tasks/:id/submit', async (req, res) => {
       await supabase.from('task_submissions').insert(payload);
     }
 
-    const message = task?.type === 'algorithm' 
-      ? 'Algorithm submitted for review' 
+    const message = task?.type === 'algorithm'
+      ? 'Algorithm submitted for review'
       : 'Task submitted successfully';
 
     res.json({ message, status: 'completed', submission_status: payload.submission_status || null });

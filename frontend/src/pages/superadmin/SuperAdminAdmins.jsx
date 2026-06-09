@@ -41,11 +41,17 @@ export default function SuperAdminAdmins() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    const res = await api.post('/superadmin/members', form);
-    setMessage(res.data.message);
-    setShowForm(false);
-    setForm({ name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '' });
-    load();
+    try {
+      const res = await api.post('/superadmin/members', form);
+      setMessage(res.data.message);
+      setTimeout(() => setMessage(''), 5000);
+      setShowForm(false);
+      setForm({ name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '' });
+      load();
+    } catch (error) {
+      setMessage(`Error: ${error.response?.data?.error || error.message}`);
+      setTimeout(() => setMessage(''), 5000);
+    }
   };
 
   return (

@@ -14,6 +14,9 @@ function getTransporter() {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
   return transporter;
 }
@@ -41,6 +44,12 @@ export async function sendWelcomeEmail({ originalmail, name, clubmail, password 
     return { sent: false, preview: true };
   }
 
-  await transport.sendMail(message);
-  return { sent: true };
+  try {
+    const result = await transport.sendMail(message);
+    console.log('[Email Sent Successfully]', { to: originalmail, messageId: result.messageId });
+    return { sent: true };
+  } catch (error) {
+    console.error('[Email Send Error]', { to: originalmail, error: error.message });
+    return { sent: false, error: error.message };
+  }
 }

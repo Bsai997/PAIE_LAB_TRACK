@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import api from '../../api/axios';
 
 export default function AdminTaskStudents() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
 
   useEffect(() => {
@@ -14,6 +15,7 @@ export default function AdminTaskStudents() {
   return (
     <Layout>
       <div className="page-header">
+        <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
         <h1>Task Students</h1>
         <p>Student progress for this task</p>
       </div>

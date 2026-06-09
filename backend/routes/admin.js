@@ -44,16 +44,50 @@ router.get('/tasks', async (req, res) => {
 
 router.post('/tasks', async (req, res) => {
   try {
-    const { title, type, difficulty, deadline, description, leetcode_link, mcq_data, error_data, concept } =
-      req.body;
+    const { 
+      title, 
+      type, 
+      difficulty, 
+      deadline, 
+      description,
+      // Coding task fields
+      practice_link,
+      // MCQ task fields
+      question,
+      options,
+      correct_answer,
+      // Error task fields
+      code,
+      correct_line,
+      // Algorithm task fields
+      problem_statement,
+      input_description,
+      output_description,
+      concept 
+    } = req.body;
 
     if (!title || !type || !difficulty || !deadline) {
       return res.status(400).json({ error: 'Title, type, difficulty, and deadline are required' });
     }
 
+    // Validate type-specific required fields
+    if (type === 'coding' && !practice_link) {
+      return res.status(400).json({ error: 'practice_link is required for coding tasks' });
+    }
+    if (type === 'mcq' && (!question || !options || correct_answer === undefined)) {
+      return res.status(400).json({ error: 'question, options, and correct_answer are required for MCQ tasks' });
+    }
+    if (type === 'error' && (!code || !correct_line)) {
+      return res.status(400).json({ error: 'code and correct_line are required for error tasks' });
+    }
+    if (type === 'algorithm' && (!problem_statement || !input_description || !output_description)) {
+      return res.status(400).json({ error: 'problem_statement, input_description, and output_description are required for algorithm tasks' });
+    }
+
     const { weekNumber, year } = getCurrentWeek();
 
-    const { data: task, error } = await supabase
+    // Create the base task
+    const { data: task, error: taskError } = await supabase
       .from('tasks')
       .insert({
         title,
@@ -61,9 +95,6 @@ router.post('/tasks', async (req, res) => {
         difficulty,
         deadline,
         description: description || concept || '',
-        leetcode_link: leetcode_link || null,
-        mcq_data: mcq_data || null,
-        error_data: error_data || null,
         created_by: req.user.id,
         week_number: weekNumber,
         year,
@@ -71,8 +102,37 @@ router.post('/tasks', async (req, res) => {
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (taskError) return res.status(500).json({ error: taskError.message });
 
+    // Create type-specific record
+    if (type === 'coding') {
+      await supabase.from('coding_tasks').insert({
+        task_id: task.id,
+        practice_link,
+      });
+    } else if (type === 'mcq') {
+      await supabase.from('mcq_tasks').insert({
+        task_id: task.id,
+        question,
+        options,
+        correct_answer: parseInt(correct_answer, 10),
+      });
+    } else if (type === 'error') {
+      await supabase.from('error_tasks').insert({
+        task_id: task.id,
+        code,
+        correct_line: parseInt(correct_line, 10),
+      });
+    } else if (type === 'algorithm') {
+      await supabase.from('algorithm_tasks').insert({
+        task_id: task.id,
+        problem_statement,
+        input_description,
+        output_description,
+      });
+    }
+
+    // Assign to all students
     const { data: students } = await supabase.from('users').select('id').eq('role', 'student');
 
     if (students?.length) {
@@ -84,7 +144,7 @@ router.post('/tasks', async (req, res) => {
       await supabase.from('task_submissions').insert(assignments);
     }
 
-    res.status(201).json(task);
+    res.status(201).json({ ...task, message: `${type} task created successfully` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create task' });
@@ -93,28 +153,40 @@ router.post('/tasks', async (req, res) => {
 
 router.get('/tasks/:id/students', async (req, res) => {
   try {
+    const { weekNumber, year } = getCurrentWeek();
+    const studentIds = [];
+
+    // OPTIMIZED: First query - get submissions for this task
     const { data, error } = await supabase
       .from('task_submissions')
       .select(`
         status,
+        student_id,
         student:users!task_submissions_student_id_fkey(id, name, branch)
       `)
       .eq('task_id', req.params.id);
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const { weekNumber, year } = getCurrentWeek();
+    // Collect student IDs
+    (data || []).forEach((d) => {
+      if (d.student_id) studentIds.push(d.student_id);
+    });
+
+    // OPTIMIZED: Second query - use COUNT in aggregate instead of fetching all records
     const { data: weekSubs } = await supabase
       .from('task_submissions')
-      .select('student_id, status, task:tasks(difficulty, week_number, year)')
-      .eq('status', 'completed');
+      .select('student_id')
+      .eq('status', 'completed')
+      .in('student_id', studentIds.length ? studentIds : ['00000000-0000-0000-0000-000000000000'])
+      .in(
+        'task_id',
+        (await supabase.from('tasks').select('id').eq('week_number', weekNumber).eq('year', year)).data?.map((t) => t.id) || []
+      );
 
     const solvedMap = {};
     (weekSubs || []).forEach((s) => {
-      if (s.task?.week_number === weekNumber && s.task?.year === year) {
-        if (!solvedMap[s.student_id]) solvedMap[s.student_id] = 0;
-        solvedMap[s.student_id]++;
-      }
+      solvedMap[s.student_id] = (solvedMap[s.student_id] || 0) + 1;
     });
 
     res.json(
@@ -122,13 +194,80 @@ router.get('/tasks/:id/students', async (req, res) => {
         id: d.student?.id,
         name: d.student?.name,
         branch: d.student?.branch,
-        questions_solved: solvedMap[d.student?.id] || 0,
+        questions_solved: solvedMap[d.student_id] || 0,
         status: d.status,
       }))
     );
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch students' });
+  }
+});
+
+// Get algorithm task submissions for review
+router.get('/algorithm/:taskId/submissions', async (req, res) => {
+  try {
+    const { data: submissions, error } = await supabase
+      .from('task_submissions')
+      .select(`
+        id,
+        student_id,
+        submission_status,
+        admin_feedback,
+        answer,
+        submitted_at,
+        student:users!task_submissions_student_id_fkey(id, name, branch)
+      `)
+      .eq('task_id', req.params.taskId);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const { data: algorithmTask } = await supabase
+      .from('algorithm_tasks')
+      .select('*')
+      .eq('task_id', req.params.taskId)
+      .single();
+
+    const { data: baseTask } = await supabase
+      .from('tasks')
+      .select('title, description')
+      .eq('id', req.params.taskId)
+      .single();
+
+    res.json({
+      task: baseTask,
+      algorithm: algorithmTask,
+      submissions: submissions || [],
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch algorithm submissions' });
+  }
+});
+
+// Review algorithm submission (accept/reject)
+router.post('/algorithm/submissions/:submissionId/review', async (req, res) => {
+  try {
+    const { status, feedback } = req.body;
+
+    if (!status || !['accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be "accepted" or "rejected"' });
+    }
+
+    const { error } = await supabase
+      .from('task_submissions')
+      .update({
+        submission_status: status,
+        admin_feedback: feedback || null,
+      })
+      .eq('id', req.params.submissionId);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ message: `Submission ${status} successfully` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to review submission' });
   }
 });
 
@@ -161,39 +300,38 @@ router.get('/tasks/stats', async (req, res) => {
 
 router.get('/performance', async (req, res) => {
   try {
-    const { data: students, error } = await supabase
+    const { weekNumber, year } = getCurrentWeek();
+
+    // OPTIMIZED: Single efficient query with aggregation at DB level
+    const { data, error } = await supabase
       .from('users')
-      .select('id, name, branch')
-      .eq('role', 'student');
+      .select(`
+        id,
+        name,
+        branch,
+        subs:task_submissions(
+          status,
+          task:tasks!inner(week_number, year)
+        )
+      `)
+      .eq('role', 'student')
+      .eq('subs.task.week_number', weekNumber)
+      .eq('subs.task.year', year);
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const { weekNumber, year } = getCurrentWeek();
+    const result = (data || []).map((s) => {
+      const subs = s.subs || [];
+      const completed = subs.filter((sub) => sub.status === 'completed').length;
+      const notCompleted = subs.filter((sub) => sub.status === 'pending' || sub.status === 'not_started').length;
 
-    const { data: tasks } = await supabase
-      .from('tasks')
-      .select('id')
-      .eq('week_number', weekNumber)
-      .eq('year', year);
-
-    const taskIds = (tasks || []).map((t) => t.id);
-
-    const { data: subs } = await supabase
-      .from('task_submissions')
-      .select('student_id, status, task_id')
-      .in('task_id', taskIds.length ? taskIds : ['00000000-0000-0000-0000-000000000000']);
-
-    const result = (students || []).map((s) => {
-      const studentSubs = (subs || []).filter((sub) => sub.student_id === s.id);
-      const completed = studentSubs.filter((sub) => sub.status === 'completed').length;
-      const notCompleted = studentSubs.filter(
-        (sub) => sub.status === 'pending' || sub.status === 'not_started'
-      ).length;
       return {
-        ...s,
+        id: s.id,
+        name: s.name,
+        branch: s.branch,
         completed,
         not_completed: notCompleted,
-        total_assigned: studentSubs.length,
+        total_assigned: subs.length,
       };
     });
 

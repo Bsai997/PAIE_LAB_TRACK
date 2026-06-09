@@ -97,7 +97,7 @@ router.get('/tasks/:id/students', async (req, res) => {
       .from('task_submissions')
       .select(`
         status,
-        student:users!task_submissions_student_id_fkey(id, name, department, branch)
+        student:users!task_submissions_student_id_fkey(id, name, branch)
       `)
       .eq('task_id', req.params.id);
 
@@ -121,7 +121,6 @@ router.get('/tasks/:id/students', async (req, res) => {
       (data || []).map((d) => ({
         id: d.student?.id,
         name: d.student?.name,
-        department: d.student?.department,
         branch: d.student?.branch,
         questions_solved: solvedMap[d.student?.id] || 0,
         status: d.status,
@@ -164,7 +163,7 @@ router.get('/performance', async (req, res) => {
   try {
     const { data: students, error } = await supabase
       .from('users')
-      .select('id, name, department, branch')
+      .select('id, name, branch')
       .eq('role', 'student');
 
     if (error) return res.status(500).json({ error: error.message });
@@ -297,14 +296,13 @@ router.get('/tests/:id/questions', async (req, res) => {
 
 router.get('/leaderboard', async (req, res) => {
   try {
-    const { search, department, sort } = req.query;
+    const { search, sort } = req.query;
 
     let query = supabase
       .from('users')
-      .select('id, name, department, branch, profile_photo')
+      .select('id, name, branch, profile_photo')
       .eq('role', 'student');
 
-    if (department && department !== 'all') query = query.eq('department', department);
     if (search) query = query.ilike('name', `%${search}%`);
 
     const { data: students, error } = await query;

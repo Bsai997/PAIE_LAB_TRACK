@@ -13,8 +13,8 @@ router.get('/admins', async (req, res) => {
     const { search } = req.query;
     let query = supabase
       .from('users')
-      .select('id, name, department, branch, profile_photo')
-      .in('role', ['admin', 'super_admin']);
+      .select('id, name, branch, profile_photo, skills')
+      .eq('role', 'admin');
 
     if (search) query = query.ilike('name', `%${search}%`);
 
@@ -45,14 +45,13 @@ router.get('/admins', async (req, res) => {
 
 router.get('/students', async (req, res) => {
   try {
-    const { search, department } = req.query;
+    const { search } = req.query;
     let query = supabase
       .from('users')
-      .select('id, name, department, branch, profile_photo')
+      .select('id, name, branch, profile_photo')
       .eq('role', 'student');
 
     if (search) query = query.ilike('name', `%${search}%`);
-    if (department && department !== 'all') query = query.eq('department', department);
 
     const { data: students, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -84,7 +83,7 @@ router.get('/students/:id/performance', async (req, res) => {
   try {
     const { data: student, error } = await supabase
       .from('users')
-      .select('id, name, department, branch, profile_photo')
+      .select('id, name, branch, profile_photo')
       .eq('id', req.params.id)
       .single();
 
@@ -171,7 +170,7 @@ router.get('/tasks/:id/students', async (req, res) => {
       .from('task_submissions')
       .select(`
         status,
-        student:users!task_submissions_student_id_fkey(id, name, department, branch)
+        student:users!task_submissions_student_id_fkey(id, name, branch)
       `)
       .eq('task_id', req.params.id);
 
@@ -181,7 +180,6 @@ router.get('/tasks/:id/students', async (req, res) => {
       (data || []).map((d) => ({
         id: d.student?.id,
         name: d.student?.name,
-        department: d.student?.department,
         branch: d.student?.branch,
         status: d.status,
       }))
@@ -194,7 +192,7 @@ router.get('/tasks/:id/students', async (req, res) => {
 
 router.post('/members', async (req, res) => {
   try {
-    const { name, branch, clubmail, originalmail, password, role, department } = req.body;
+    const { name, branch, clubmail, originalmail, password, role, skills } = req.body;
 
     if (!name || !clubmail || !originalmail || !password || !role) {
       return res.status(400).json({ error: 'All required fields must be filled' });
@@ -217,13 +215,13 @@ router.post('/members', async (req, res) => {
       .insert({
         name,
         branch: branch || '',
-        department: department || branch || '',
         clubmail,
         originalmail,
         regdid: clubmail,
         password_hash,
         role,
-        profile_photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff`,
+        skills: skills || '',
+        profile_photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1f5c3a&color=fff`,
       })
       .select('id, name, role, clubmail')
       .single();

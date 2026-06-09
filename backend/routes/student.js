@@ -298,16 +298,13 @@ router.post('/tests/:id/submit', async (req, res) => {
 
 router.get('/leaderboard', async (req, res) => {
   try {
-    const { search, department, sort } = req.query;
+    const { search, sort } = req.query;
 
     let query = supabase
       .from('users')
-      .select('id, name, department, branch, profile_photo')
+      .select('id, name, branch, profile_photo')
       .eq('role', 'student');
 
-    if (department && department !== 'all') {
-      query = query.eq('department', department);
-    }
     if (search) {
       query = query.ilike('name', `%${search}%`);
     }

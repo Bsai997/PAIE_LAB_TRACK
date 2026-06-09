@@ -8,12 +8,14 @@ export default function SuperAdminAdmins() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', department: '',
+    name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '',
   });
   const [message, setMessage] = useState('');
 
   const load = () => {
-    api.get('/superadmin/admins', { params: { search } }).then((res) => setAdmins(res.data));
+    api.get('/superadmin/admins', { params: { search } }).then((res) => {
+      setAdmins(res.data);
+    });
   };
 
   useEffect(() => { load(); }, [search]);
@@ -23,8 +25,14 @@ export default function SuperAdminAdmins() {
     const res = await api.post('/superadmin/members', form);
     setMessage(res.data.message);
     setShowForm(false);
+    setForm({ name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '' });
     load();
   };
+
+  const total = contributionStats.easy + contributionStats.medium + contributionStats.hard;
+  const easyPercent = total ? (contributionStats.easy / total * 100) : 0;
+  const mediumPercent = total ? (contributionStats.medium / total * 100) : 0;
+  const hardPercent = total ? (contributionStats.hard / total * 100) : 0;
 
   return (
     <Layout>
@@ -42,28 +50,32 @@ export default function SuperAdminAdmins() {
         <input placeholder="Search admins..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      <div className="admin-list">
-        {admins.map((admin) => (
-          <div key={admin.id} className="admin-card">
-            <img src={admin.profile_photo} alt={admin.name} className="avatar-lg" />
-            <div className="admin-info">
-              <h3>{admin.name}</h3>
-              <p>{admin.department}</p>
-            </div>
-            <div className="contribution-circles">
-              <div className="circle easy"><span>{admin.contribution.easy}</span><small>Easy</small></div>
-              <div className="circle medium"><span>{admin.contribution.medium}</span><small>Medium</small></div>
-              <div className="circle hard"><span>{admin.contribution.hard}</span><small>Hard</small></div>
-            </div>
+      <div className="admin-section">
+        <div className="admin-list-container">
+          <div className="admin-list">
+            {admins.map((admin) => (
+              <div key={admin.id} className="admin-card">
+                <img src={admin.profile_photo} alt={admin.name} className="avatar-lg" />
+                <div className="admin-info">
+                  <h3>{admin.name}</h3>
+                  <p>{admin.skills || 'No skills listed'}</p>
+                </div>
+                <div className="contribution-circles">
+                  <div className="circle easy"><span>{admin.contribution?.easy || 0}</span><small>Easy</small></div>
+                  <div className="circle medium"><span>{admin.contribution?.medium || 0}</span><small>Medium</small></div>
+                  <div className="circle hard"><span>{admin.contribution?.hard || 0}</span><small>Hard</small></div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Add a Member">
         <form onSubmit={handleAdd}>
           <div className="form-group"><label>Name</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
           <div className="form-group"><label>Branch</label><input value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} /></div>
-          <div className="form-group"><label>Department</label><input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></div>
+          <div className="form-group"><label>Skills</label><input value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} placeholder="e.g., React, Node.js, Python" /></div>
           <div className="form-group"><label>Club Mail (Reg ID)</label><input value={form.clubmail} onChange={(e) => setForm({ ...form, clubmail: e.target.value })} required /></div>
           <div className="form-group"><label>Original Mail</label><input type="email" value={form.originalmail} onChange={(e) => setForm({ ...form, originalmail: e.target.value })} required /></div>
           <div className="form-group"><label>Password</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>

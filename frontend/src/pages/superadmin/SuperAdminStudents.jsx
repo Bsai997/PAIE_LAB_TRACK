@@ -35,7 +35,7 @@ export default function SuperAdminStudents() {
               <img src={s.profile_photo} alt={s.name} className="avatar-lg" />
               <div>
                 <h3>{s.name}</h3>
-                <p>{s.branch} · {s.department}</p>
+                <p>Department:{s.branch} </p>
               </div>
             </div>
             <div className="contribution-circles">

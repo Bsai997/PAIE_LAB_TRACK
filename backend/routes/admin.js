@@ -44,11 +44,11 @@ router.get('/tasks', async (req, res) => {
 
 router.post('/tasks', async (req, res) => {
   try {
-    const { 
-      title, 
-      type, 
-      difficulty, 
-      deadline, 
+    const {
+      title,
+      type,
+      difficulty,
+      deadline,
       description,
       // Coding task fields
       practice_link,
@@ -63,7 +63,7 @@ router.post('/tasks', async (req, res) => {
       problem_statement,
       input_description,
       output_description,
-      concept 
+      concept
     } = req.body;
 
     if (!title || !type || !difficulty || !deadline) {
@@ -93,7 +93,7 @@ router.post('/tasks', async (req, res) => {
         title,
         type,
         difficulty,
-        deadline,
+        deadline: `${String(deadline).slice(0, 10)}T23:59:59.000Z`,
         description: description || concept || '',
         created_by: req.user.id,
         week_number: weekNumber,
@@ -147,7 +147,7 @@ router.post('/tasks', async (req, res) => {
     res.status(201).json({ ...task, message: `${type} task created successfully` });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Failed to create task' });
+    res.status(500).json({ error: err.message || 'Failed to create task' });
   }
 });
 

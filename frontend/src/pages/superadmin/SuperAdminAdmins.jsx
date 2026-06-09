@@ -42,6 +42,14 @@ export default function SuperAdminAdmins() {
     setShowSuggestions(false);
   };
 
+  const getSkillList = (skills) => {
+    if (!skills) return [];
+    return skills
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  };
+
   const handleAdd = async (e) => {
     e.preventDefault();
     try {
@@ -57,50 +65,35 @@ export default function SuperAdminAdmins() {
 
   return (
     <Layout>
-      <div className="admin-tasks-header">
-        <div>
+      <div className="admin-tasks-header superadmin-admins-header">
+        <div className="superadmin-admins-title">
           <button className="btn btn-outline btn-sm" onClick={() => navigate(-1)}>← Back</button>
           <h1>Admin Control</h1>
           <p>Manage admin members and contributions</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>Add a Member</button>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Add a Member</button>
       </div>
 
-      <div className="filters" style={{ position: 'relative' }}>
-        <input 
-          placeholder="Search admins..." 
-          value={search} 
+      <div className="filters superadmin-admin-search-wrap" style={{ position: 'relative' }}>
+        <span className="superadmin-admin-search-icon" aria-hidden="true">⌕</span>
+        <input
+          className="superadmin-admin-search"
+          placeholder="Search admins..."
+          value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
           onFocus={() => search.length > 0 && setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
         />
         {showSuggestions && suggestions.length > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            backgroundColor: 'white',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            zIndex: 10,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-          }}>
+          <div className="superadmin-admin-suggestions">
             {suggestions.map((admin) => (
               <div
                 key={admin.id}
                 onClick={() => selectSuggestion(admin.name)}
-                style={{
-                  padding: '10px 15px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #eee',
-                  hover: { backgroundColor: '#f5f5f5' }
-                }}
+                className="superadmin-admin-suggestion-item"
               >
                 <strong>{admin.name}</strong>
-                <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>{admin.branch}</span>
+                <span>{admin.branch}</span>
               </div>
             ))}
           </div>
@@ -111,12 +104,25 @@ export default function SuperAdminAdmins() {
         <div className="admin-list-container">
           <div className="admin-list">
             {admins.map((admin) => (
-              <div key={admin.id} className="admin-card">
-                <img src={admin.profile_photo} alt={admin.name} className="avatar-lg" />
-                <div className="admin-info">
-                  <h3>{admin.name}</h3>
-                  <p><strong>Department:</strong> {admin.department || admin.branch || 'N/A'}</p>
-                  <p><strong>Skills:</strong> {admin.skills || 'No skills listed'}</p>
+              <div key={admin.id} className="admin-card superadmin-admin-card">
+                <div className="admin-identity">
+                  <img src={admin.profile_photo} alt={admin.name} className="avatar-lg" />
+                  <div className="admin-info">
+                    <h3>{admin.name}</h3>
+                    <p><strong>Department:</strong> {admin.department || admin.branch || 'N/A'}</p>
+                    <div className="admin-skills-line">
+                      <strong>Skills:</strong>
+                      <div className="admin-skills-chips">
+                        {getSkillList(admin.skills).length > 0 ? (
+                          getSkillList(admin.skills).map((skill) => (
+                            <span key={`${admin.id}-${skill}`} className="skill-chip">{skill}</span>
+                          ))
+                        ) : (
+                          <span className="skill-chip">No skills</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="contribution-circles">
                   <div className="circle easy"><span>{admin.contribution?.easy || 0}</span><small>Easy</small></div>

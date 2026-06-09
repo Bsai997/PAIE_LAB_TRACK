@@ -4,6 +4,8 @@ import Layout from '../../components/Layout';
 import Modal from '../../components/Modal';
 import api from '../../api/axios';
 
+const createEmptyMcq = () => ({ question: '', options: ['', ''], correct_answer: 0 });
+
 export default function AdminTasks() {
   const [tasks, setTasks] = useState([]);
   const [stats, setStats] = useState({ completed_count: 0 });
@@ -11,7 +13,7 @@ export default function AdminTasks() {
   const [form, setForm] = useState({
     title: '', type: 'mcq', difficulty: 'easy', deadline: '', description: '',
     leetcode_link: '', concept: '',
-    mcq_question: '', mcq_options: ['', '', '', ''], mcq_correct: 0,
+    mcq_questions: [createEmptyMcq()],
     error_code: '', error_line: 1,
   });
   const navigate = useNavigate();
@@ -37,10 +39,28 @@ export default function AdminTasks() {
       payload.leetcode_link = form.leetcode_link;
       payload.description = form.concept || form.description;
     } else if (form.type === 'mcq') {
+      const questions = (form.mcq_questions || [])
+        .map((q) => {
+          const cleanOptions = (q.options || []).map((o) => (o || '').trim()).filter(Boolean);
+          const maxIndex = Math.max(cleanOptions.length - 1, 0);
+          return {
+            question: (q.question || '').trim(),
+            options: cleanOptions,
+            correct_answer: Math.min(parseInt(q.correct_answer, 10) || 0, maxIndex),
+          };
+        })
+        .filter((q) => q.question && q.options.length >= 2);
+
+      if (!questions.length) {
+        window.alert('Please add at least one MCQ with a question and two options.');
+        return;
+      }
+
       payload.mcq_data = {
-        question: form.mcq_question,
-        options: form.mcq_options.filter(Boolean),
-        correct_answer: parseInt(form.mcq_correct, 10),
+        questions,
+        question: questions[0].question,
+        options: questions[0].options,
+        correct_answer: questions[0].correct_answer,
       };
     } else {
       payload.error_data = { code: form.error_code, correct_line: parseInt(form.error_line, 10) };
@@ -51,10 +71,77 @@ export default function AdminTasks() {
     load();
   };
 
-  const updateOption = (i, val) => {
-    const opts = [...form.mcq_options];
-    opts[i] = val;
-    setForm({ ...form, mcq_options: opts });
+  const updateMcqQuestion = (questionIndex, value) => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: prev.mcq_questions.map((q, i) =>
+        i === questionIndex ? { ...q, question: value } : q
+      ),
+    }));
+  };
+
+  const updateMcqOption = (questionIndex, optionIndex, value) => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: prev.mcq_questions.map((q, i) => {
+        if (i !== questionIndex) return q;
+        const options = [...q.options];
+        options[optionIndex] = value;
+        return { ...q, options };
+      }),
+    }));
+  };
+
+  const setCorrectOption = (questionIndex, optionIndex) => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: prev.mcq_questions.map((q, i) =>
+        i === questionIndex ? { ...q, correct_answer: optionIndex } : q
+      ),
+    }));
+  };
+
+  const addMcqOption = (questionIndex) => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: prev.mcq_questions.map((q, i) =>
+        i === questionIndex ? { ...q, options: [...q.options, ''] } : q
+      ),
+    }));
+  };
+
+  const removeMcqOption = (questionIndex, optionIndex) => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: prev.mcq_questions.map((q, i) => {
+        if (i !== questionIndex || q.options.length <= 2) return q;
+        const nextOptions = q.options.filter((_, idx) => idx !== optionIndex);
+        const nextCorrect = q.correct_answer === optionIndex
+          ? 0
+          : q.correct_answer > optionIndex
+            ? q.correct_answer - 1
+            : q.correct_answer;
+
+        return { ...q, options: nextOptions, correct_answer: nextCorrect };
+      }),
+    }));
+  };
+
+  const addAnotherQuestion = () => {
+    setForm((prev) => ({
+      ...prev,
+      mcq_questions: [...prev.mcq_questions, createEmptyMcq()],
+    }));
+  };
+
+  const removeQuestion = (questionIndex) => {
+    setForm((prev) => {
+      if (prev.mcq_questions.length <= 1) return prev;
+      return {
+        ...prev,
+        mcq_questions: prev.mcq_questions.filter((_, i) => i !== questionIndex),
+      };
+    });
   };
 
   return (
@@ -97,26 +184,24 @@ export default function AdminTasks() {
               <div key={task.id} className="admin-task-card task-card-professional">
                 <div className="admin-task-main">
                   <h3>{task.title}</h3>
-                  <p>{task.description}</p>
+                  <p><strong>Topic:</strong> {task.description}</p>
                   <div className="task-meta-row">
-                    <span className={`badge badge-${task.difficulty}`}>{task.difficulty}</span>
                     <span>Deadline: {new Date(task.deadline).toLocaleDateString()}</span>
                     <span>Submissions: {task.total_submissions}</span>
                     <span>By: {task.created_by}</span>
                   </div>
                 </div>
-                <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students`)}>
-                  View Students
-                </button>
+                <div>
+                  <div style={{ marginBottom: '0.5rem', textAlign: 'right' }}>
+                    <span className={`badge badge-${task.difficulty}`}>{task.difficulty}</span>
+                  </div>
+                  <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students`)}>
+                    View Students
+                  </button>
+                </div>
               </div>
             ))
           )}
-        </div>
-        <div className="stat-sidebar">
-          <div className="stat-card">
-            <h3>Students Completed</h3>
-            <p className="stat-number">{stats.completed_count}</p>
-          </div>
         </div>
       </div>
 
@@ -163,21 +248,66 @@ export default function AdminTasks() {
           )}
 
           {form.type === 'mcq' && (
-            <>
-              <div className="form-group">
-                <label>Question</label>
-                <textarea value={form.mcq_question} onChange={(e) => setForm({ ...form, mcq_question: e.target.value })} rows={3} />
-              </div>
-              {form.mcq_options.map((opt, i) => (
-                <div key={i} className="form-group mcq-form-option">
-                  <label>
-                    <input type="radio" name="correct" checked={form.mcq_correct === i} onChange={() => setForm({ ...form, mcq_correct: i })} />
-                    Option {i + 1}
-                  </label>
-                  <input value={opt} onChange={(e) => updateOption(i, e.target.value)} />
+            <div className="mcq-builder-stack">
+              {form.mcq_questions.map((mcq, qIndex) => (
+                <div key={qIndex} className="mcq-builder-card">
+                  <div className="mcq-builder-titlebar">
+                    <span className="mcq-question-tag">Question {qIndex + 1}</span>
+                    {form.mcq_questions.length > 1 && (
+                      <button
+                        type="button"
+                        className="mcq-remove-question"
+                        onClick={() => removeQuestion(qIndex)}
+                      >
+                        Remove Question
+                      </button>
+                    )}
+                  </div>
+                  <div className="mcq-question-header">
+                    <input
+                      className="mcq-question-input"
+                      value={mcq.question}
+                      onChange={(e) => updateMcqQuestion(qIndex, e.target.value)}
+                      placeholder="Untitled Question"
+                    />
+                  </div>
+                  {mcq.options.map((opt, i) => (
+                    <div key={i} className="mcq-option-row">
+                      <input
+                        type="radio"
+                        name={`correct-${qIndex}`}
+                        checked={mcq.correct_answer === i}
+                        onChange={() => setCorrectOption(qIndex, i)}
+                        aria-label={`Mark option ${i + 1} as correct for question ${qIndex + 1}`}
+                      />
+                      <input
+                        value={opt}
+                        onChange={(e) => updateMcqOption(qIndex, i, e.target.value)}
+                        placeholder={`Option ${i + 1}`}
+                      />
+                      {mcq.options.length > 2 && (
+                        <button
+                          type="button"
+                          className="mcq-remove-option"
+                          onClick={() => removeMcqOption(qIndex, i)}
+                          aria-label={`Remove option ${i + 1} from question ${qIndex + 1}`}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="mcq-add-row">
+                    <button type="button" className="mcq-add-option" onClick={() => addMcqOption(qIndex)}>Add option</button>
+                    <span>or</span>
+                    <button type="button" className="mcq-add-other" onClick={() => addMcqOption(qIndex)}>add "Other"</button>
+                  </div>
                 </div>
               ))}
-            </>
+              <button type="button" className="btn btn-outline mcq-add-question-btn" onClick={addAnotherQuestion}>
+                Add Another Question
+              </button>
+            </div>
           )}
 
           {form.type === 'error' && (

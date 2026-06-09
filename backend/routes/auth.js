@@ -15,7 +15,7 @@ router.post('/login', async (req, res) => {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, regdid, password_hash, name, role, department, branch, profile_photo, clubmail')
+      .select('id, regdid, password_hash, name, role, branch, profile_photo, clubmail, originalmail, skills')
       .eq('regdid', regdid)
       .single();
 
@@ -41,10 +41,11 @@ router.post('/login', async (req, res) => {
         regdid: user.regdid,
         name: user.name,
         role: user.role,
-        department: user.department,
         branch: user.branch,
         profile_photo: user.profile_photo,
         clubmail: user.clubmail,
+        originalmail: user.originalmail,
+        skills: user.skills,
       },
     });
   } catch (err) {
@@ -57,7 +58,7 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, regdid, name, role, department, branch, profile_photo, clubmail')
+      .select('id, regdid, name, role, branch, profile_photo, clubmail, originalmail, skills')
       .eq('id', req.user.id)
       .single();
 

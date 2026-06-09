@@ -44,11 +44,11 @@ router.get('/tasks', async (req, res) => {
 
 router.post('/tasks', async (req, res) => {
   try {
-    const { 
-      title, 
-      type, 
-      difficulty, 
-      deadline, 
+    const {
+      title,
+      type,
+      difficulty,
+      deadline,
       description,
       // Coding task fields
       practice_link,
@@ -63,28 +63,13 @@ router.post('/tasks', async (req, res) => {
       problem_statement,
       input_description,
       output_description,
-      concept 
+      concept
     } = req.body;
 
     if (!title || !type || !difficulty || !deadline) {
       return res.status(400).json({ error: 'Title, type, difficulty, and deadline are required' });
     }
 
-<<<<<<< HEAD
-    const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
-    const toIsoDeadline = (value) => {
-      const raw = String(value || '').trim();
-      if (!raw) return null;
-      const normalized = raw.includes('T') ? raw : `${raw}T23:59:59.000Z`;
-      const parsed = new Date(normalized);
-      if (Number.isNaN(parsed.getTime())) return null;
-      return parsed.toISOString();
-    };
-
-    const normalizedDeadline = toIsoDeadline(deadline);
-    if (!normalizedDeadline) {
-      return res.status(400).json({ error: 'Invalid deadline format' });
-=======
     // Validate type-specific required fields
     if (type === 'coding' && !practice_link) {
       return res.status(400).json({ error: 'practice_link is required for coding tasks' });
@@ -97,46 +82,10 @@ router.post('/tasks', async (req, res) => {
     }
     if (type === 'algorithm' && (!problem_statement || !input_description || !output_description)) {
       return res.status(400).json({ error: 'problem_statement, input_description, and output_description are required for algorithm tasks' });
->>>>>>> 1d8cbca7f558aea3370c17d1f98d95781533d1f5
     }
 
     const { weekNumber, year } = getCurrentWeek();
 
-<<<<<<< HEAD
-    const payload = {
-      title,
-      type,
-      difficulty,
-      deadline: normalizedDeadline,
-      description: description || concept || '',
-      created_by: isUuid(req.user.id) ? req.user.id : null,
-      week_number: weekNumber,
-      year,
-    };
-
-    if (type === 'coding') {
-      payload.leetcode_link = leetcode_link || null;
-    }
-
-    if (type === 'mcq') {
-      const questions = Array.isArray(mcq_data?.questions) ? mcq_data.questions : [];
-      const firstQuestion = questions[0] || mcq_data || {};
-      payload.mcq_data = {
-        question: firstQuestion.question || '',
-        options: Array.isArray(firstQuestion.options) ? firstQuestion.options : [],
-        correct_answer: Number.isInteger(firstQuestion.correct_answer) ? firstQuestion.correct_answer : 0,
-        questions,
-      };
-    }
-
-    if (type === 'error') {
-      payload.error_data = error_data || null;
-    }
-
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .insert(payload)
-=======
     // Create the base task
     const { data: task, error: taskError } = await supabase
       .from('tasks')
@@ -144,13 +93,12 @@ router.post('/tasks', async (req, res) => {
         title,
         type,
         difficulty,
-        deadline,
+        deadline: `${String(deadline).slice(0, 10)}T23:59:59.000Z`,
         description: description || concept || '',
         created_by: req.user.id,
         week_number: weekNumber,
         year,
       })
->>>>>>> 1d8cbca7f558aea3370c17d1f98d95781533d1f5
       .select()
       .single();
 

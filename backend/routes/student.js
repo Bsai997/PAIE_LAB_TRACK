@@ -10,37 +10,50 @@ router.get('/tasks', async (req, res) => {
   try {
     const { weekNumber, year } = getCurrentWeek();
 
+    // OPTIMIZED: Single query with proper joins instead of 6 separate queries
     const { data: allTasks, error } = await supabase
       .from('tasks')
       .select(`
-        id, title, type, difficulty, deadline, description, leetcode_link, mcq_data, error_data,
-        created_by_user:users!tasks_created_by_fkey(name)
+        id, title, type, difficulty, deadline, description, week_number,
+        created_by_user:users!tasks_created_by_fkey(name),
+        submission:task_submissions!task_submissions_task_id_student_id_fkey(
+          status, submitted_at
+        ),
+        coding:coding_tasks(task_id, practice_link),
+        mcq:mcq_tasks(task_id, question, options, correct_answer),
+        error:error_tasks(task_id, code, correct_line),
+        algorithm:algorithm_tasks(task_id, problem_statement, input_description, output_description)
       `)
       .eq('week_number', weekNumber)
-      .eq('year', year);
+      .eq('year', year)
+      .eq('submission.student_id', req.user.id);
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const { data: subs } = await supabase
-      .from('task_submissions')
-      .select('task_id, status')
-      .eq('student_id', req.user.id);
+    const result = (allTasks || []).map((t) => {
+      const taskData = {
+        id: t.id,
+        title: t.title,
+        type: t.type,
+        difficulty: t.difficulty,
+        deadline: t.deadline,
+        description: t.description,
+        created_by: t.created_by_user?.name || 'Admin',
+        status: t.submission && t.submission.length > 0 ? t.submission[0].status : 'not_started',
+      };
 
-    const subMap = Object.fromEntries((subs || []).map((s) => [s.task_id, s.status]));
+      if (t.type === 'coding' && t.coding?.length) {
+        taskData.coding = t.coding[0];
+      } else if (t.type === 'mcq' && t.mcq?.length) {
+        taskData.mcq = t.mcq[0];
+      } else if (t.type === 'error' && t.error?.length) {
+        taskData.error = t.error[0];
+      } else if (t.type === 'algorithm' && t.algorithm?.length) {
+        taskData.algorithm = t.algorithm[0];
+      }
 
-    const result = (allTasks || []).map((t) => ({
-      id: t.id,
-      title: t.title,
-      type: t.type,
-      difficulty: t.difficulty,
-      deadline: t.deadline,
-      description: t.description,
-      leetcode_link: t.leetcode_link,
-      mcq_data: t.mcq_data,
-      error_data: t.error_data,
-      created_by: t.created_by_user?.name || 'Admin',
-      status: subMap[t.id] || 'not_started',
-    }));
+      return taskData;
+    });
 
     res.json(result);
   } catch (err) {
@@ -61,17 +74,36 @@ router.get('/tasks/:id', async (req, res) => {
 
     const { data: sub } = await supabase
       .from('task_submissions')
-      .select('status, score, answer, submitted_at')
+      .select('status, score, answer, submitted_at, submission_status, admin_feedback')
       .eq('task_id', req.params.id)
       .eq('student_id', req.user.id)
       .maybeSingle();
 
+    // Fetch type-specific data
+    let typeSpecificData = null;
+    if (task.type === 'coding') {
+      const { data } = await supabase.from('coding_tasks').select('practice_link').eq('task_id', req.params.id).single();
+      typeSpecificData = data;
+    } else if (task.type === 'mcq') {
+      const { data } = await supabase.from('mcq_tasks').select('question, options, correct_answer').eq('task_id', req.params.id).single();
+      typeSpecificData = data;
+    } else if (task.type === 'error') {
+      const { data } = await supabase.from('error_tasks').select('code, correct_line').eq('task_id', req.params.id).single();
+      typeSpecificData = data;
+    } else if (task.type === 'algorithm') {
+      const { data } = await supabase.from('algorithm_tasks').select('problem_statement, input_description, output_description').eq('task_id', req.params.id).single();
+      typeSpecificData = data;
+    }
+
     res.json({
       ...task,
+      typeSpecific: typeSpecificData,
       status: sub?.status || 'not_started',
       submission_score: sub?.score ?? null,
       submission_answer: sub?.answer ?? null,
       submitted_at: sub?.submitted_at ?? null,
+      submission_status: sub?.submission_status ?? null,
+      admin_feedback: sub?.admin_feedback ?? null,
     });
   } catch (err) {
     console.error(err);
@@ -83,6 +115,9 @@ router.post('/tasks/:id/submit', async (req, res) => {
   try {
     const { answer, score } = req.body;
     const taskId = req.params.id;
+
+    // Get the task to determine type
+    const { data: task } = await supabase.from('tasks').select('type').eq('id', taskId).single();
 
     const { data: existing } = await supabase
       .from('task_submissions')
@@ -100,13 +135,22 @@ router.post('/tasks/:id/submit', async (req, res) => {
       submitted_at: new Date().toISOString(),
     };
 
+    // For algorithm tasks, set submission_status to 'submitted' (pending review)
+    if (task?.type === 'algorithm') {
+      payload.submission_status = 'submitted';
+    }
+
     if (existing) {
       await supabase.from('task_submissions').update(payload).eq('id', existing.id);
     } else {
       await supabase.from('task_submissions').insert(payload);
     }
 
-    res.json({ message: 'Task submitted successfully', status: 'completed' });
+    const message = task?.type === 'algorithm' 
+      ? 'Algorithm submitted for review' 
+      : 'Task submitted successfully';
+
+    res.json({ message, status: 'completed', submission_status: payload.submission_status || null });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to submit task' });

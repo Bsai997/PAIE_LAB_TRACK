@@ -16,13 +16,24 @@ export default function AdminTasks() {
     leetcode_link: '', concept: '',
     mcq_questions: [createEmptyMcq()],
     error_code: '', error_line: 1,
+    problem_statement: '', input_description: '', output_description: '',
   });
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
   const load = () => {
-    api.get('/admin/tasks').then((res) => setTasks(res.data));
-    api.get('/admin/tasks/stats').then((res) => setStats(res.data));
+    // OPTIMIZED: Use Promise.all for parallel requests instead of sequential
+    Promise.all([
+      api.get('/admin/tasks'),
+      api.get('/admin/tasks/stats')
+    ])
+      .then(([tasksRes, statsRes]) => {
+        setTasks(tasksRes.data);
+        setStats(statsRes.data);
+      })
+      .catch(() => {
+        // Handle error silently
+      });
   };
 
   useEffect(() => { load(); }, []);
@@ -38,7 +49,7 @@ export default function AdminTasks() {
     };
 
     if (form.type === 'coding') {
-      payload.leetcode_link = form.leetcode_link;
+      payload.practice_link = form.leetcode_link;
       payload.description = form.concept || form.description;
     } else if (form.type === 'mcq') {
       const questions = (form.mcq_questions || [])
@@ -58,19 +69,32 @@ export default function AdminTasks() {
         return;
       }
 
-      payload.mcq_data = {
-        questions,
-        question: questions[0].question,
-        options: questions[0].options,
-        correct_answer: questions[0].correct_answer,
-      };
-    } else {
-      payload.error_data = { code: form.error_code, correct_line: parseInt(form.error_line, 10) };
+      payload.question = questions[0].question;
+      payload.options = questions[0].options;
+      payload.correct_answer = questions[0].correct_answer;
+    } else if (form.type === 'error') {
+      payload.code = form.error_code;
+      payload.correct_line = parseInt(form.error_line, 10);
+    } else if (form.type === 'algorithm') {
+      if (!form.problem_statement || !form.input_description || !form.output_description) {
+        showError('Please fill in problem statement, input description, and output description.');
+        return;
+      }
+      payload.problem_statement = form.problem_statement;
+      payload.input_description = form.input_description;
+      payload.output_description = form.output_description;
     }
 
     try {
       await api.post('/admin/tasks', payload);
       setShowForm(false);
+      setForm({
+        title: '', type: 'mcq', difficulty: 'easy', deadline: '', description: '',
+        leetcode_link: '', concept: '',
+        mcq_questions: [createEmptyMcq()],
+        error_code: '', error_line: 1,
+        problem_statement: '', input_description: '', output_description: '',
+      });
       showSuccess('Task created successfully.');
       load();
     } catch (error) {
@@ -192,7 +216,7 @@ export default function AdminTasks() {
                   <div style={{ marginBottom: '0.5rem', textAlign: 'right' }}>
                     <span className={`badge badge-${task.difficulty}`}>{task.difficulty}</span>
                   </div>
-                  <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students`)}>
+                  <button className="btn btn-outline" onClick={() => navigate(`/admin/tasks/${task.id}/students?type=${task.type}`)}>
                     View Students
                   </button>
                 </div>
@@ -215,6 +239,7 @@ export default function AdminTasks() {
                 <option value="mcq">MCQ</option>
                 <option value="coding">Coding</option>
                 <option value="error">Error Finding</option>
+                <option value="algorithm">Algorithm Design</option>
               </select>
             </div>
             <div className="form-group">
@@ -318,6 +343,23 @@ export default function AdminTasks() {
               <div className="form-group">
                 <label>Correct Error Line Number</label>
                 <input type="number" value={form.error_line} onChange={(e) => setForm({ ...form, error_line: e.target.value })} min="1" />
+              </div>
+            </>
+          )}
+
+          {form.type === 'algorithm' && (
+            <>
+              <div className="form-group">
+                <label>Problem Statement</label>
+                <textarea value={form.problem_statement} onChange={(e) => setForm({ ...form, problem_statement: e.target.value })} rows={6} placeholder="Describe the algorithm problem here..." required />
+              </div>
+              <div className="form-group">
+                <label>Input Description</label>
+                <textarea value={form.input_description} onChange={(e) => setForm({ ...form, input_description: e.target.value })} rows={3} placeholder="Example input and description..." required />
+              </div>
+              <div className="form-group">
+                <label>Output Description</label>
+                <textarea value={form.output_description} onChange={(e) => setForm({ ...form, output_description: e.target.value })} rows={3} placeholder="Expected output description..." required />
               </div>
             </>
           )}

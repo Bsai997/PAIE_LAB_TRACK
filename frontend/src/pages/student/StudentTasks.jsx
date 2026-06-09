@@ -25,11 +25,14 @@ export default function StudentTasks() {
     if (task.type === 'mcq') navigate(`/student/tasks/${task.id}/mcq`);
     else if (task.type === 'coding') {
       // Coding tasks should send students directly to the external problem page.
-      if (task.leetcode_link) {
-        window.open(task.leetcode_link, '_blank', 'noopener,noreferrer');
+      if (task.coding?.practice_link) {
+        window.open(task.coding.practice_link, '_blank', 'noopener,noreferrer');
       }
+    } else if (task.type === 'error') {
+      navigate(`/student/tasks/${task.id}/error`);
+    } else if (task.type === 'algorithm') {
+      navigate(`/student/tasks/${task.id}/algorithm`);
     }
-    else navigate(`/student/tasks/${task.id}/error`);
   };
 
   const handleMarkCompleted = async (taskId) => {

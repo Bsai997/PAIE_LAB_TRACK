@@ -12,19 +12,31 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const lastValidated = localStorage.getItem('token_validated_at');
+    const now = Date.now();
+
+    // OPTIMIZED: Only re-validate every 30 minutes if token hasn't changed
+    if (token && lastValidated && now - parseInt(lastValidated) < 30 * 60 * 1000) {
+      setLoading(false);
+      return;
+    }
+
     if (!token) {
       setLoading(false);
       return;
     }
+
     api
       .get('/auth/me')
       .then((res) => {
         setUser(res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
+        localStorage.setItem('token_validated_at', now.toString());
       })
       .catch(() => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('token_validated_at');
         setUser(null);
       })
       .finally(() => setLoading(false));

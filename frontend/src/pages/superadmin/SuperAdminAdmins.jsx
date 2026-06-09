@@ -6,6 +6,8 @@ import api from '../../api/axios';
 export default function SuperAdminAdmins() {
   const [admins, setAdmins] = useState([]);
   const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '',
@@ -20,6 +22,23 @@ export default function SuperAdminAdmins() {
 
   useEffect(() => { load(); }, [search]);
 
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    if (value.length > 0) {
+      const filtered = admins.filter(a => a.name.toLowerCase().includes(value.toLowerCase()));
+      setSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (name) => {
+    setSearch(name);
+    setShowSuggestions(false);
+  };
+
   const handleAdd = async (e) => {
     e.preventDefault();
     const res = await api.post('/superadmin/members', form);
@@ -28,11 +47,6 @@ export default function SuperAdminAdmins() {
     setForm({ name: '', branch: '', clubmail: '', originalmail: '', password: '', role: 'admin', skills: '' });
     load();
   };
-
-  const total = contributionStats.easy + contributionStats.medium + contributionStats.hard;
-  const easyPercent = total ? (contributionStats.easy / total * 100) : 0;
-  const mediumPercent = total ? (contributionStats.medium / total * 100) : 0;
-  const hardPercent = total ? (contributionStats.hard / total * 100) : 0;
 
   return (
     <Layout>
@@ -46,8 +60,45 @@ export default function SuperAdminAdmins() {
 
       {message && <div className="alert alert-success">{message}</div>}
 
-      <div className="filters">
-        <input placeholder="Search admins..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="filters" style={{ position: 'relative' }}>
+        <input 
+          placeholder="Search admins..." 
+          value={search} 
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onFocus={() => search.length > 0 && setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            backgroundColor: 'white',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            maxHeight: '200px',
+            overflowY: 'auto',
+            zIndex: 10,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            {suggestions.map((admin) => (
+              <div
+                key={admin.id}
+                onClick={() => selectSuggestion(admin.name)}
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #eee',
+                  hover: { backgroundColor: '#f5f5f5' }
+                }}
+              >
+                <strong>{admin.name}</strong>
+                <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>{admin.branch}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="admin-section">

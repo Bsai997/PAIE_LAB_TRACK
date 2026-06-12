@@ -16,6 +16,7 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(regdid, password);
+      // console.log(user)
       if (user.role === 'student') navigate('/student');
       else if (user.role === 'admin') navigate('/admin');
       else if (user.role === 'super_admin') navigate('/superadmin');

@@ -12,22 +12,21 @@ router.post('/login', async (req, res) => {
     if (!regdid || !password) {
       return res.status(400).json({ error: 'Registration ID and password are required' });
     }
-
+// console.log(regdid,password)
     const { data: user, error } = await supabase
       .from('users')
       .select('id, regdid, password_hash, name, role, branch, profile_photo, clubmail, originalmail, skills')
       .eq('regdid', regdid)
       .single();
-
+      // console.log(process.env.SUPABASE_SERVICE_KEY);
     if (error || !user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invals' });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid password' });
     }
-
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name },
       process.env.JWT_SECRET,
